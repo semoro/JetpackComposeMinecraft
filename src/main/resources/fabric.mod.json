@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "composetest",
+  "version": "1.0.0",
+  "authors": [
+
+  ],
+  "mixins": ["mixins.eridani.json"],
+  "environment": "client",
+  "entrypoints": {
+    "client": ["club.eridani.client.FabricClientEntry"]
+  }
+}

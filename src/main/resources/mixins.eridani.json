@@ -1,0 +1,9 @@
+{
+  "required": true,
+  "package": "club.eridani.mixin",
+  "refmap": "mixins.eridani.refmap.json",
+  "mixins": [
+    "gl.MixinFramebuffer"
+  ],
+  "compatibilityLevel": "JAVA_11"
+}
