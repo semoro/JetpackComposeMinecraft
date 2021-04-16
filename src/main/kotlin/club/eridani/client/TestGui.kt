@@ -19,13 +19,17 @@ import net.minecraft.client.gl.Framebuffer
 import net.minecraft.client.gui.screen.Screen
 import net.minecraft.client.util.math.MatrixStack
 import net.minecraft.text.Text
-import org.lwjgl.opengl.*
-import org.lwjgl.opengl.GL11C.glGetInteger
-import org.lwjgl.opengl.GL13.GL_ACTIVE_TEXTURE
-import org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER_BINDING
-import org.lwjgl.opengl.GL20.GL_CURRENT_PROGRAM
-import org.lwjgl.opengl.GL20.GL_VERTEX_ATTRIB_ARRAY_ENABLED
-import org.lwjgl.opengl.GL33.*
+//import org.lwjgl.input.Mouse
+import org.lwjgl.opengl.GL11.*
+import org.lwjgl.opengl.GL13.*
+import org.lwjgl.opengl.GL15.*
+import org.lwjgl.opengl.GL20.*
+import org.lwjgl.opengl.GL30.*
+import org.lwjgl.opengl.GL32.GL_TEXTURE_2D_MULTISAMPLE
+import org.lwjgl.opengl.GL32.glTexImage2DMultisample
+import org.lwjgl.opengl.GL33.GL_SAMPLER_BINDING
+import org.lwjgl.opengl.GL33.glBindSampler
+import org.lwjgl.opengl.GL43.GL_SAMPLER
 import java.nio.*
 import java.util.*
 import kotlin.collections.ArrayDeque
@@ -83,7 +87,7 @@ import kotlin.coroutines.*
 
                 var show by remember { mutableStateOf(false) }
 
-                Button(onClick = {}) {
+                Button(onClick = {show = true}) {
                     Text("Jetpack Compose in Minecraft!")
                 }
 
@@ -102,14 +106,14 @@ import kotlin.coroutines.*
         store.bindTexture = glGetInteger(GL_TEXTURE_BINDING_2D)
         store.enableScissor = glGetBoolean(GL_SCISSOR_TEST)
         if (store.enableScissor) {
-            GL11.glGetIntegerv(GL_SCISSOR_BOX, store.scissorBox.apply { clear() })
+            glGetIntegerv(GL_SCISSOR_BOX, store.scissorBox.apply { clear() })
         }
         store.bindSampler = glGetInteger(GL_SAMPLER_BINDING)
 
         checkGL()
 
         for (index in store.enableVertexAttribArray.indices) {
-            GL30.glGetVertexAttribIiv(index, GL_VERTEX_ATTRIB_ARRAY_ENABLED, buf.apply { clear() }.asIntBuffer())
+            glGetVertexAttribIiv(index, GL_VERTEX_ATTRIB_ARRAY_ENABLED, buf.apply { clear() }.asIntBuffer())
             store.enableVertexAttribArray[index] = buf.int
         }
     }
