@@ -15,12 +15,13 @@ repositories {
     maven("http://nexus.devsrsouza.com.br/repository/maven-public/")
     maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
     maven(url = "https://dl.bintray.com/animeshz/maven")
+    maven("https://packages.jetbrains.team/maven/p/skija/maven")
 }
 
 dependencies {
 
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.3")
+//    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.3")
     implementation(compose.desktop.currentOs)
     implementation(kotlin("stdlib"))
     implementation(kotlin("reflect"))
@@ -32,7 +33,10 @@ dependencies {
     modImplementation("net.fabricmc:fabric-loader:0.11.2")
     modImplementation("net.fabricmc.fabric-api:fabric-api:0.31.0+1.16")
 
-
+//    implementation("org.jetbrains.skija:skija-windows:0.6.35")
+    implementation("org.jetbrains.skiko:skiko-jvm:0.1.21")
+    implementation("org.jetbrains.skiko:skiko-jvm-runtime-windows-x64:0.1.21")
+//    implementation("org.jetbrains.skiko:skiko-jvm-runtime-windows-x64:0.1.20")
 }
 
 

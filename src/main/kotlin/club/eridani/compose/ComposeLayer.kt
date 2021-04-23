@@ -162,10 +162,8 @@ internal class ComposeLayer(val dispatcher: CoroutineDispatcher) {
             get() = 1f
     }
 
-    internal val wrapped = Wrapped()
+    val wrapped = Wrapped()
 
-    val component: HardwareLayer
-        get() = wrapped
 
     init {
         wrapped.renderer = object : SkiaRenderer {

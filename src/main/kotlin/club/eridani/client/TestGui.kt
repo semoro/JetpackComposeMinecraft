@@ -1,5 +1,6 @@
 package club.eridani.client
 
+//import org.lwjgl.input.Mouse
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -10,7 +11,6 @@ import androidx.compose.ui.gesture.scrollorientationlocking.Orientation
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.mouse.*
 import club.eridani.compose.*
-import club.eridani.compose.ComposeLayer
 import club.eridani.mixin.gl.MixinFramebuffer
 import club.eridani.util.mc
 import kotlinx.coroutines.*
@@ -19,17 +19,9 @@ import net.minecraft.client.gl.Framebuffer
 import net.minecraft.client.gui.screen.Screen
 import net.minecraft.client.util.math.MatrixStack
 import net.minecraft.text.Text
-//import org.lwjgl.input.Mouse
-import org.lwjgl.opengl.GL11.*
-import org.lwjgl.opengl.GL13.*
-import org.lwjgl.opengl.GL15.*
-import org.lwjgl.opengl.GL20.*
 import org.lwjgl.opengl.GL30.*
-import org.lwjgl.opengl.GL32.GL_TEXTURE_2D_MULTISAMPLE
-import org.lwjgl.opengl.GL32.glTexImage2DMultisample
 import org.lwjgl.opengl.GL33.GL_SAMPLER_BINDING
 import org.lwjgl.opengl.GL33.glBindSampler
-import org.lwjgl.opengl.GL43.GL_SAMPLER
 import java.nio.*
 import java.util.*
 import kotlin.collections.ArrayDeque
@@ -87,13 +79,14 @@ import kotlin.coroutines.*
 
                 var show by remember { mutableStateOf(false) }
 
-                Button(onClick = {show = true}) {
+                Button(onClick = { show = !show }) {
                     Text("Jetpack Compose in Minecraft!")
                 }
 
                 AnimatedVisibility(show) {
                     Text("Jetpack Compose is here!")
                 }
+
 
             }
         }
