@@ -1,6 +1,5 @@
 package club.eridani.client
 
-//import org.lwjgl.input.Mouse
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -11,7 +10,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ComposeScene
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -20,14 +18,14 @@ import club.eridani.compose.MSAAFramebuffer
 import club.eridani.util.mc
 import com.mojang.blaze3d.systems.RenderSystem
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gl.Framebuffer
 import net.minecraft.client.gui.screen.Screen
 import net.minecraft.client.util.math.MatrixStack
 import net.minecraft.text.Text
 import org.jetbrains.skia.ByteBuffer
 import org.jetbrains.skia.DirectContext
-import org.jetbrains.skia.Paint
-import org.jetbrains.skia.Rect
+import org.jetbrains.skia.Surface
 import org.lwjgl.opengl.GL30.*
 import org.lwjgl.opengl.GL33.GL_SAMPLER_BINDING
 import org.lwjgl.opengl.GL33.glBindSampler
@@ -35,9 +33,6 @@ import java.nio.ByteOrder
 
 @OptIn(ExperimentalAnimationApi::class)
 class TestGui : Screen(Text.of("Eridani")) {
-
-    val context = DirectContext.makeGL()
-    var surface = createSurface(width, height, context) // Skia Surface, bound to the OpenGL framebuffer
     val glfwDispatcher = GlfwCoroutineDispatcher() // a custom coroutine dispatcher, in which Compose will run
 
     var closed = false
@@ -46,20 +41,31 @@ class TestGui : Screen(Text.of("Eridani")) {
     val mcContext = Context()
     val jetpackContext = Context()
 
-    init {
+
+    lateinit var surface: Surface
+    lateinit var context: DirectContext
+
+    lateinit var composeFrameBuffer: MSAAFramebuffer
+
+    lateinit var targetFbo: Framebuffer
+
+    override fun init(minecraftClient: MinecraftClient?, i: Int, j: Int) {
+        super.init(minecraftClient, i, j)
+        RenderSystem.assertThread { RenderSystem.isOnRenderThreadOrInit() }
+
+        targetFbo = Framebuffer(mc.window.width, mc.window.height, false, false)
         glEnable(GL_MULTISAMPLE)
-    }
 
-    val composeFrameBuffer: MSAAFramebuffer
-
-    init {
-
-        glEnable(GL_MULTISAMPLE)
         composeFrameBuffer = MSAAFramebuffer(mc.window.width, mc.window.height, false)
-        glDisable(GL_MULTISAMPLE)
-    }
 
-    val targetFbo = Framebuffer(mc.window.width, mc.window.height, false, false)
+        context = DirectContext.makeGL()
+        surface = createSurface(mc.window.width, mc.window.height, context) // Skia Surface, bound to the OpenGL framebuffer
+
+        glDisable(GL_MULTISAMPLE)
+
+        println("target fbo at: ${targetFbo.fbo}")
+        println("compose fbo at: ${composeFrameBuffer.fbo}")
+    }
 
     override fun onClose() {
         super.onClose()
@@ -90,8 +96,8 @@ class TestGui : Screen(Text.of("Eridani")) {
     override fun render(matrixStack: MatrixStack?, i: Int, j: Int, f: Float) {
         super.render(matrixStack, i, j, f)
 
+        RenderSystem.assertThread { RenderSystem.isOnRenderThreadOrInit() }
         val outputFb = glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING)
-
 
         glDisable(GL_DEPTH_TEST)
         glDisable(GL_ALPHA_TEST)
