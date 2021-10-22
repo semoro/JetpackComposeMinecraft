@@ -2,14 +2,16 @@ package club.eridani.client
 
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.Button
+import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ComposeScene
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FileBasedFontFamily
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -49,6 +51,9 @@ class TestGui : Screen(Text.of("Eridani")) {
 
     lateinit var targetFbo: Framebuffer
 
+    lateinit var density: Density
+    lateinit var composeScene: ComposeScene
+
     override fun init(minecraftClient: MinecraftClient?, i: Int, j: Int) {
         super.init(minecraftClient, i, j)
         RenderSystem.assertThread { RenderSystem.isOnRenderThreadOrInit() }
@@ -57,6 +62,7 @@ class TestGui : Screen(Text.of("Eridani")) {
         glEnable(GL_MULTISAMPLE)
 
         composeFrameBuffer = MSAAFramebuffer(mc.window.width, mc.window.height, false)
+        composeFrameBuffer.beginWrite(true)
 
         context = DirectContext.makeGL()
         surface = createSurface(mc.window.width, mc.window.height, context) // Skia Surface, bound to the OpenGL framebuffer
@@ -65,6 +71,27 @@ class TestGui : Screen(Text.of("Eridani")) {
 
         println("target fbo at: ${targetFbo.fbo}")
         println("compose fbo at: ${composeFrameBuffer.fbo}")
+
+        density = Density(glfwGetWindowContentScale(mc.window.handle))
+        composeScene = ComposeScene(glfwDispatcher, density) {
+            invalidated = true
+        }
+
+        composeScene.setContent {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(1000.dp, 500.dp).background(Color.White)) {
+                    Text("Text Renderer 中文render")
+                }
+            }
+            Button({println("Booom")}) {
+                Text("BOBOBOBOKOAEO")
+            }
+            CircularProgressIndicator()
+        }
+
+        composeScene.constraints = Constraints(maxWidth = mc.window.width, maxHeight = mc.window.height)
+
+        composeFrameBuffer.endWrite()
     }
 
     override fun onClose() {
@@ -73,23 +100,8 @@ class TestGui : Screen(Text.of("Eridani")) {
         composeScene.close()
     }
 
+    var invalidated = false
 
-    val density = Density(glfwGetWindowContentScale(mc.window.handle))
-    val composeScene: ComposeScene = ComposeScene(glfwDispatcher, density)
-
-    init {
-
-        composeScene.setContent {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Box(Modifier.size(1000.dp, 500.dp).background(Color.White)) {
-                    Text("Text Renderer 中文render")
-                }
-            }
-        }
-
-        composeScene.constraints = Constraints(maxWidth = width, maxHeight = height)
-
-    }
 
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -114,8 +126,10 @@ class TestGui : Screen(Text.of("Eridani")) {
 
 
         glfwDispatcher.runLoop()
-        surface.canvas.clear(org.jetbrains.skia.Color.WHITE)
-        composeScene.render(surface.canvas, System.nanoTime())
+        if (invalidated) {
+            surface.canvas.clear(org.jetbrains.skia.Color.CYAN)
+            composeScene.render(surface.canvas, System.nanoTime())
+        }
         context.flush()
         composeFrameBuffer.endWrite()
 
