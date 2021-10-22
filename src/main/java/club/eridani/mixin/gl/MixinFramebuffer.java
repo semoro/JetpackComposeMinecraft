@@ -9,8 +9,8 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 public interface MixinFramebuffer {
 
     @Accessor("colorAttachment")
-    void eridaniSetColorAttachment(int v);
+    void access$setColorAttachment(int v);
 
     @Invoker("bind")
-    public void eridaniBind(boolean bl);
+    public void access$bind(boolean bl);
 }

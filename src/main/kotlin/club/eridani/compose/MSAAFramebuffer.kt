@@ -31,13 +31,13 @@ class MSAAFramebuffer(w: Int, h: Int, depth: Boolean) : Framebuffer(w, h, depth,
         viewportHeight = height
 
         fbo = glGenFramebuffers()
-        (this as MixinFramebuffer).eridaniSetColorAttachment(glGenTextures())
+        (this as MixinFramebuffer).`access$setColorAttachment`(glGenTextures())
 
         beginRead()
         glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA8, viewportWidth, viewportHeight, false)
         endRead()
 
-        (this as MixinFramebuffer).eridaniBind(false)
+        (this as MixinFramebuffer).`access$bind`(false)
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, colorAttachment, 0)
 
         clear(false)
