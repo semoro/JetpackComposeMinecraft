@@ -1,96 +1,140 @@
 package club.eridani.client
 
 //import org.lwjgl.input.Mouse
-import androidx.compose.animation.*
+import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.material.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.ComposeScene
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.gesture.scrollorientationlocking.Orientation
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.mouse.*
-import club.eridani.compose.*
-import club.eridani.mixin.gl.MixinFramebuffer
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
+import club.eridani.compose.Context
+import club.eridani.compose.MSAAFramebuffer
 import club.eridani.util.mc
-import kotlinx.coroutines.*
-import net.minecraft.client.MinecraftClient
+import com.mojang.blaze3d.systems.RenderSystem
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import net.minecraft.client.gl.Framebuffer
 import net.minecraft.client.gui.screen.Screen
 import net.minecraft.client.util.math.MatrixStack
 import net.minecraft.text.Text
+import org.jetbrains.skia.ByteBuffer
+import org.jetbrains.skia.DirectContext
+import org.jetbrains.skia.Paint
+import org.jetbrains.skia.Rect
 import org.lwjgl.opengl.GL30.*
 import org.lwjgl.opengl.GL33.GL_SAMPLER_BINDING
 import org.lwjgl.opengl.GL33.glBindSampler
-import java.nio.*
-import java.util.*
-import kotlin.collections.ArrayDeque
-import kotlin.coroutines.*
+import java.nio.ByteOrder
 
-@OptIn(ExperimentalAnimationApi::class) class TestGui : Screen(Text.of("Eridani")) {
-    val queue = ArrayDeque<Runnable>()
-    val timedQueue = PriorityQueue<TimedRequest>(compareBy { it.timeMillis })
+@OptIn(ExperimentalAnimationApi::class)
+class TestGui : Screen(Text.of("Eridani")) {
 
-    @OptIn(InternalCoroutinesApi::class)
-    private val composeLayer = ComposeLayer(object : CoroutineDispatcher(), Delay {
-        val creator = Thread.currentThread()
+    val context = DirectContext.makeGL()
+    var surface = createSurface(width, height, context) // Skia Surface, bound to the OpenGL framebuffer
+    val glfwDispatcher = GlfwCoroutineDispatcher() // a custom coroutine dispatcher, in which Compose will run
 
-        override fun dispatch(context: CoroutineContext, block: Runnable) {
-            if (creator != Thread.currentThread()) {
-                error("!")
-            }
-            queue.addLast(block)
-        }
-
-        override fun isDispatchNeeded(context: CoroutineContext): Boolean {
-            return true
-        }
-
-        override fun scheduleResumeAfterDelay(timeMillis: Long, continuation: CancellableContinuation<Unit>) {
-            timedQueue += TimedRequest(System.currentTimeMillis() + timeMillis, continuation)
-        }
-    })
-
-    lateinit var msaaFbo: Framebuffer
-    lateinit var targetFbo: Framebuffer
-
+    var closed = false
     val buf = ByteBuffer.allocateDirect(4 * 4).order(ByteOrder.nativeOrder())
 
     val mcContext = Context()
     val jetpackContext = Context()
-    val renderContext = Context()
-
-    override fun resize(minecraftClient: MinecraftClient?, i: Int, j: Int) {
-        msaaFbo.delete()
-        targetFbo.delete()
-//        composeLayer.reinit()
-        super.resize(minecraftClient, i, j)
-    }
-
-    fun checkGL() {
-        glGetError().takeIf { it != 0 }?.let {
-            error("BUG $it")
-        }
-    }
 
     init {
-        composeLayer.setContent {
-            Column(Modifier.fillMaxSize().background(Color(255, 255, 255, 100))) {
+        glEnable(GL_MULTISAMPLE)
+    }
 
-                var show by remember { mutableStateOf(false) }
+    val composeFrameBuffer: MSAAFramebuffer
 
-                Button(onClick = { show = !show }) {
-                    Text("Jetpack Compose in Minecraft!")
+    init {
+
+        glEnable(GL_MULTISAMPLE)
+        composeFrameBuffer = MSAAFramebuffer(mc.window.width, mc.window.height, false)
+        glDisable(GL_MULTISAMPLE)
+    }
+
+    val targetFbo = Framebuffer(mc.window.width, mc.window.height, false, false)
+
+    override fun onClose() {
+        super.onClose()
+        closed = true
+        composeScene.close()
+    }
+
+
+    val density = Density(glfwGetWindowContentScale(mc.window.handle))
+    val composeScene: ComposeScene = ComposeScene(glfwDispatcher, density)
+
+    init {
+
+        composeScene.setContent {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(1000.dp, 500.dp).background(Color.White)) {
+                    Text("Text Renderer 中文render")
                 }
-
-                AnimatedVisibility(show) {
-                    Text("Jetpack Compose is here!")
-                }
-
-
             }
         }
+
+        composeScene.constraints = Constraints(maxWidth = width, maxHeight = height)
+
     }
+
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override fun render(matrixStack: MatrixStack?, i: Int, j: Int, f: Float) {
+        super.render(matrixStack, i, j, f)
+
+        val outputFb = glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING)
+
+
+        glDisable(GL_DEPTH_TEST)
+        glDisable(GL_ALPHA_TEST)
+        glDisable(GL_CULL_FACE)
+
+        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
+
+        composeFrameBuffer.clear(true)
+        swapGlContextState(mcContext, jetpackContext)
+        composeFrameBuffer.beginWrite(true)
+
+        glEnable(GL_MULTISAMPLE)
+        glEnable(GL_BLEND)
+
+
+        glfwDispatcher.runLoop()
+        surface.canvas.clear(org.jetbrains.skia.Color.WHITE)
+        composeScene.render(surface.canvas, System.nanoTime())
+        context.flush()
+        composeFrameBuffer.endWrite()
+
+        swapGlContextState(jetpackContext, mcContext)
+
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, targetFbo.fbo)
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, composeFrameBuffer.fbo)
+        glBlitFramebuffer(0, 0, mc.window.width, mc.window.height, 0, 0, mc.window.width, mc.window.height, GL_COLOR_BUFFER_BIT, GL_NEAREST)
+
+        glDisable(GL_MULTISAMPLE)
+        
+        glBindFramebuffer(GL_FRAMEBUFFER, outputFb)
+        targetFbo.draw(mc.window.width, mc.window.height, false)
+
+        glEnable(GL_BLEND)
+        glEnable(GL_DEPTH_TEST)
+        glEnable(GL_CULL_FACE)
+
+    }
+
+
+    override fun shouldCloseOnEsc(): Boolean {
+        return true
+    }
+
 
     fun saveGlContext(store: Context) {
         store.shader = glGetInteger(GL_CURRENT_PROGRAM)
@@ -103,7 +147,7 @@ import kotlin.coroutines.*
         }
         store.bindSampler = glGetInteger(GL_SAMPLER_BINDING)
 
-        checkGL()
+
 
         for (index in store.enableVertexAttribArray.indices) {
             glGetVertexAttribIiv(index, GL_VERTEX_ATTRIB_ARRAY_ENABLED, buf.apply { clear() }.asIntBuffer())
@@ -120,17 +164,17 @@ import kotlin.coroutines.*
                 glEnableVertexAttribArray(index)
         }
 
-        checkGL()
+
 
 
         glBindBuffer(GL_ARRAY_BUFFER, load.arrayBuffer)
-        checkGL()
+
         glUseProgram(load.shader)
-        checkGL()
+
         if (load.activeTexture != 0) glActiveTexture(load.activeTexture)
-        checkGL()
+
         glBindTexture(GL_TEXTURE_2D, load.bindTexture)
-        checkGL()
+
 
         if (load.enableScissor) {
             glEnable(GL_SCISSOR_TEST)
@@ -138,158 +182,15 @@ import kotlin.coroutines.*
         } else {
             glDisable(GL_SCISSOR_TEST)
         }
-        checkGL()
+
 
         if (load.activeTexture != 0) glBindSampler(load.activeTexture - GL_TEXTURE0, load.bindSampler)
 
-        checkGL()
-    }
 
-
-    fun schedule(block: suspend CoroutineScope.() -> Unit) {
-        GlobalScope.launch(composeLayer.dispatcher, block = block)
-    }
-
-
-    override fun mouseClicked(d: Double, e: Double, i: Int): Boolean {
-        schedule { composeLayer.owners?.onMousePressed(d.toInt(), e.toInt()) }
-        return true
-    }
-
-    override fun mouseDragged(d: Double, e: Double, i: Int, f: Double, g: Double): Boolean {
-        schedule { composeLayer.owners?.onMouseDragged(d.toInt(), e.toInt()) }
-        return true
-    }
-
-    override fun mouseReleased(d: Double, e: Double, i: Int): Boolean {
-        schedule { composeLayer.owners?.onMouseReleased(d.toInt(), e.toInt()) }
-        return true
-    }
-
-    override fun mouseScrolled(d: Double, e: Double, f: Double): Boolean {
-        schedule {
-            composeLayer.owners?.onMouseScroll(
-                d.toInt(),
-                e.toInt(),
-                MouseScrollEvent(MouseScrollUnit.Page((f * -1f / mc.window.height).toFloat()), Orientation.Vertical)
-            )
-        }
-        return true
-    }
-
-    override fun mouseMoved(d: Double, e: Double) {
-        schedule { composeLayer.owners?.onMouseMoved(d.toInt(), e.toInt()) }
     }
 
     fun swapGlContextState(store: Context, load: Context) {
         saveGlContext(store)
         restoreGlContext(load)
     }
-
-    override fun onClose() {
-        composeLayer.dispose()
-    }
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    override fun render(matrixStack: MatrixStack?, i: Int, j: Int, f: Float) {
-        super.render(matrixStack, i, j, f)
-
-        val outputFb = glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING)
-
-        checkGL()
-        glDisable(GL_DEPTH_TEST)
-        glDisable(GL_ALPHA_TEST)
-        glDisable(GL_CULL_FACE)
-
-        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
-
-
-        msaaFbo.clear(false)
-
-        swapGlContextState(mcContext, jetpackContext)
-
-        (msaaFbo as MixinFramebuffer).eridaniBind(true)
-
-
-        glEnable(GL_MULTISAMPLE)
-        glEnable(GL_BLEND)
-
-
-        checkGL()
-
-
-
-        while (queue.isNotEmpty()) {
-            val task = queue.removeFirst()
-            task.run()
-            checkGL()
-        }
-
-        val currentTime = System.currentTimeMillis()
-        while (timedQueue.isNotEmpty()) {
-            if (timedQueue.peek().timeMillis <= currentTime) {
-                timedQueue.poll().continuation.resume(Unit)
-            } else {
-                break
-            }
-        }
-
-
-
-        composeLayer.wrapped.draw()
-        msaaFbo.endRead()
-
-        checkGL()
-
-
-        swapGlContextState(jetpackContext, mcContext)
-
-        checkGL()
-
-//        glDisable(GL_BLEND)
-
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, targetFbo.fbo)   // Make sure no FBO is set as the draw framebuffer
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, msaaFbo.fbo) // Make sure your multisampled FBO is the read framebuffer
-        glBlitFramebuffer(
-            0,
-            0,
-            mc.window.width,
-            mc.window.height,
-            0,
-            0,
-            mc.window.width,
-            mc.window.height,
-            GL_COLOR_BUFFER_BIT,
-            GL_NEAREST
-        )
-
-        glDisable(GL_MULTISAMPLE)
-
-
-
-        glBindFramebuffer(GL_FRAMEBUFFER, outputFb)
-        targetFbo.draw(mc.window.width, mc.window.height, false)
-
-        checkGL()
-
-        glEnable(GL_BLEND)
-        glEnable(GL_DEPTH_TEST)
-//        glEnable(GL_ALPHA_TEST)
-        glEnable(GL_CULL_FACE)
-
-
-    }
-
-    override fun init() {
-        glEnable(GL_MULTISAMPLE)
-        msaaFbo = MSAAFramebuffer(mc.window.width, mc.window.height, false)
-        glDisable(GL_MULTISAMPLE)
-
-        targetFbo = Framebuffer(mc.window.width, mc.window.height, false, false)
-
-        composeLayer.wrapped.setSize(mc.window.width, mc.window.height)
-        composeLayer.needRedrawLayer()
-        composeLayer.reinit()
-    }
-
 }

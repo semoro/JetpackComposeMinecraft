@@ -1,7 +1,5 @@
 package club.eridani.client
 
-import androidx.compose.desktop.Window
-import androidx.compose.material.Text
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper
@@ -16,6 +14,7 @@ class FabricClientEntry : ClientModInitializer {
     init {
         System.setProperty("SKIKO_RENDER_API", "OPENGL")
     }
+
     override fun onInitializeClient() {
         val keybind = KeyBindingHelper.registerKeyBinding(
             KeyBinding(
