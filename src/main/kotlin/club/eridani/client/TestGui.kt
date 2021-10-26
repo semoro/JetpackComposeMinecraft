@@ -3,15 +3,26 @@ package club.eridani.client
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.Button
 import androidx.compose.material.CircularProgressIndicator
+import androidx.compose.material.Icon
+import androidx.compose.material.IconButton
 import androidx.compose.material.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ComposeScene
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FileBasedFontFamily
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.input.mouse.MouseScrollUnit
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -25,13 +36,14 @@ import net.minecraft.client.gl.Framebuffer
 import net.minecraft.client.gui.screen.Screen
 import net.minecraft.client.util.math.MatrixStack
 import net.minecraft.text.Text
-import org.jetbrains.skia.ByteBuffer
-import org.jetbrains.skia.DirectContext
-import org.jetbrains.skia.Surface
+import org.jetbrains.skia.*
 import org.lwjgl.opengl.GL30.*
 import org.lwjgl.opengl.GL33.GL_SAMPLER_BINDING
 import org.lwjgl.opengl.GL33.glBindSampler
 import java.nio.ByteOrder
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.reflect.full.declaredMemberProperties
+import kotlin.reflect.jvm.isAccessible
 
 @OptIn(ExperimentalAnimationApi::class)
 class TestGui : Screen(Text.of("Eridani")) {
@@ -47,6 +59,8 @@ class TestGui : Screen(Text.of("Eridani")) {
     lateinit var surface: Surface
     lateinit var context: DirectContext
 
+    lateinit var mcSurface: Surface
+
     lateinit var composeFrameBuffer: MSAAFramebuffer
 
     lateinit var targetFbo: Framebuffer
@@ -54,17 +68,44 @@ class TestGui : Screen(Text.of("Eridani")) {
     lateinit var density: Density
     lateinit var composeScene: ComposeScene
 
+    lateinit var mcImage: Image
+    var frames by mutableStateOf(0)
+
+    override fun isPauseScreen(): Boolean {
+        return false
+    }
+
     override fun init(minecraftClient: MinecraftClient?, i: Int, j: Int) {
         super.init(minecraftClient, i, j)
+
+        // Avoid race-conditions
+        Class.forName("androidx.compose.ui.platform.GlobalSnapshotManager").kotlin.apply {
+            this.declaredMemberProperties.find { it.name == "started" }!!.apply {
+                isAccessible = true
+                (this.getter.call() as AtomicBoolean).set(true)
+            }
+        }
+
         RenderSystem.assertThread { RenderSystem.isOnRenderThreadOrInit() }
+
+        context = DirectContext.makeGL()
+        mc.framebuffer.beginWrite(false)
+        val mcRenderTarget = BackendRenderTarget.makeGL(mc.window.width, mc.window.height, 0, 0, mc.framebuffer.fbo, FramebufferFormat.GR_GL_RGBA8)
+        mcSurface = Surface.makeFromBackendRenderTarget(
+            context, mcRenderTarget, SurfaceOrigin.BOTTOM_LEFT, SurfaceColorFormat.RGBA_8888, ColorSpace.sRGB
+        )
+        mc.framebuffer.endWrite()
+        mcImage = mcSurface.makeImageSnapshot()
 
         targetFbo = Framebuffer(mc.window.width, mc.window.height, false, false)
         glEnable(GL_MULTISAMPLE)
 
         composeFrameBuffer = MSAAFramebuffer(mc.window.width, mc.window.height, false)
+
+        swapGlContextState(mcContext, jetpackContext)
         composeFrameBuffer.beginWrite(true)
 
-        context = DirectContext.makeGL()
+
         surface = createSurface(mc.window.width, mc.window.height, context) // Skia Surface, bound to the OpenGL framebuffer
 
         glDisable(GL_MULTISAMPLE)
@@ -78,37 +119,60 @@ class TestGui : Screen(Text.of("Eridani")) {
         }
 
         composeScene.setContent {
+
+            Box(Modifier.fillMaxSize().blur(2.dp).drawWithContent {
+                frames.let {
+                    this.drawContext.canvas.nativeCanvas.drawImage(mcImage, 0f, 0f)
+                }
+            })
+
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Box(Modifier.size(1000.dp, 500.dp).background(Color.White)) {
-                    Text("Text Renderer 中文render")
+                Box(Modifier.size(200.dp, 150.dp).background(Color.White)) {
+                    Column {
+                        Row(Modifier.height(16.dp).background(Color.Gray)) {
+                            Text("Test dialog")
+                            Spacer(Modifier.weight(1f, fill = true))
+                            IconButton({ println("Close!") }) {
+                                Icon(Icons.Default.Close, "close")
+                            }
+                        }
+                        Text("Text Renderer 中文render")
+                        CircularProgressIndicator()
+                    }
                 }
             }
-            Button({println("Booom")}) {
-                Text("BOBOBOBOKOAEO")
-            }
-            CircularProgressIndicator()
         }
 
         composeScene.constraints = Constraints(maxWidth = mc.window.width, maxHeight = mc.window.height)
 
         composeFrameBuffer.endWrite()
+
+        swapGlContextState(jetpackContext, mcContext)
     }
 
     override fun onClose() {
         super.onClose()
         closed = true
+
+        glfwDispatcher.stop()
         composeScene.close()
+        this.mcSurface.close()
+        this.surface.close()
+        this.context.close()
+        Runtime.getRuntime().runFinalization()
+        this.targetFbo.delete()
+        this.composeFrameBuffer.delete()
     }
 
-    var invalidated = false
-
+    private var invalidated = false
 
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun render(matrixStack: MatrixStack?, i: Int, j: Int, f: Float) {
         super.render(matrixStack, i, j, f)
-
         RenderSystem.assertThread { RenderSystem.isOnRenderThreadOrInit() }
+
+
         val outputFb = glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING)
 
         glDisable(GL_DEPTH_TEST)
@@ -119,6 +183,14 @@ class TestGui : Screen(Text.of("Eridani")) {
 
         composeFrameBuffer.clear(true)
         swapGlContextState(mcContext, jetpackContext)
+
+
+        mcSurface.notifyContentWillChange(ContentChangeMode.DISCARD)
+        mcImage.close()
+        mcImage = mcSurface.makeImageSnapshot()
+        frames++
+
+
         composeFrameBuffer.beginWrite(true)
 
         glEnable(GL_MULTISAMPLE)
@@ -127,7 +199,7 @@ class TestGui : Screen(Text.of("Eridani")) {
 
         glfwDispatcher.runLoop()
         if (invalidated) {
-            surface.canvas.clear(org.jetbrains.skia.Color.CYAN)
+            surface.canvas.clear(org.jetbrains.skia.Color.TRANSPARENT)
             composeScene.render(surface.canvas, System.nanoTime())
         }
         context.flush()
@@ -147,7 +219,6 @@ class TestGui : Screen(Text.of("Eridani")) {
         glEnable(GL_BLEND)
         glEnable(GL_DEPTH_TEST)
         glEnable(GL_CULL_FACE)
-
     }
 
 

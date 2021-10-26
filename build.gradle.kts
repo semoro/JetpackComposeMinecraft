@@ -1,7 +1,7 @@
 plugins {
     kotlin("jvm") version "1.5.31"
     id("fabric-loom") version "0.7.9"
-    id("org.jetbrains.compose") version "1.0.0-alpha4-build418"
+    id("org.jetbrains.compose") version "1.0.0-beta3"
 //    id("com.github.johnrengelman.shadow") version "6.1.0"
 }
 
