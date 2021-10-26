@@ -1,22 +1,22 @@
 package club.eridani.compose
 
-import kotlinx.coroutines.CancellableContinuation
 import club.eridani.mixin.gl.MixinFramebuffer
+import kotlinx.coroutines.CancellableContinuation
 import net.minecraft.client.gl.Framebuffer
 import org.lwjgl.opengl.GL30.*
 import org.lwjgl.opengl.GL32.GL_TEXTURE_2D_MULTISAMPLE
 import org.lwjgl.opengl.GL32.glTexImage2DMultisample
 import java.nio.*
 
-class MSAAFramebuffer(w: Int, h: Int, depth: Boolean) : Framebuffer(w, h, depth, false)  {
+class MSAAFramebuffer(w: Int, h: Int, depth: Boolean) : Framebuffer(false) {
     init {
-        clearColor[0] = 0f
-        clearColor[1] = 0f
-        clearColor[2] = 0f
-        clearColor[3] = 0f
+        clear(false)
+        initFbo(w, h, false)
     }
 
-    override fun beginRead() {
+
+    // read
+    override fun method_35610() {
         glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, colorAttachment)
     }
 
@@ -33,7 +33,8 @@ class MSAAFramebuffer(w: Int, h: Int, depth: Boolean) : Framebuffer(w, h, depth,
         fbo = glGenFramebuffers()
         (this as MixinFramebuffer).`access$setColorAttachment`(glGenTextures())
 
-        beginRead()
+//        beginRead()
+        method_35610()
         glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA8, viewportWidth, viewportHeight, false)
         endRead()
 

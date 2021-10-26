@@ -14,7 +14,7 @@ fun glfwGetWindowContentScale(window: Long): Float {
 
 fun createSurface(width: Int, height: Int, context: DirectContext): Surface {
     val fbId = GL11.glGetInteger(GL_FRAMEBUFFER_BINDING)
-    val renderTarget = BackendRenderTarget.makeGL(width, height, 0, 8, fbId, GR_GL_RGBA8)
+    val renderTarget = BackendRenderTarget.makeGL(width, height, 4, 8, fbId, GR_GL_RGBA8)
     return Surface.makeFromBackendRenderTarget(
         context, renderTarget, SurfaceOrigin.BOTTOM_LEFT, SurfaceColorFormat.RGBA_8888, ColorSpace.sRGB
     )

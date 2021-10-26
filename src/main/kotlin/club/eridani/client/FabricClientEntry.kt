@@ -8,7 +8,7 @@ import net.fabricmc.fabric.api.client.screen.v1.Screens
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.screen.TitleScreen
 import net.minecraft.client.gui.widget.ButtonWidget
-import net.minecraft.client.options.KeyBinding
+import net.minecraft.client.option.KeyBinding
 import net.minecraft.client.util.InputUtil
 import net.minecraft.text.LiteralText
 import net.minecraft.text.TranslatableText
@@ -33,7 +33,7 @@ class FabricClientEntry : ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(ClientTickEvents.EndTick { client: MinecraftClient ->
             while (keybind.wasPressed()) {
-                client.openScreen(TestGui())
+                client.setScreen(TestGui())
             }
         })
 

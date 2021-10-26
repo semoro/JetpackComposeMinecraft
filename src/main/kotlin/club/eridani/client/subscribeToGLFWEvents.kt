@@ -29,7 +29,7 @@ fun ComposeScene.subscribeToGLFWEvents(windowHandle: Long) {
                 GLFW_RELEASE -> PointerEventType.Release
                 else -> PointerEventType.Unknown
             },
-            nativeEvent = MouseEvent(getAwtMods(windowHandle))
+            mouseEvent = MouseEvent(getAwtMods(windowHandle))
         )
     }
 
@@ -37,7 +37,7 @@ fun ComposeScene.subscribeToGLFWEvents(windowHandle: Long) {
         sendPointerEvent(
             position = Offset(xpos.toFloat(), ypos.toFloat()),
             eventType = PointerEventType.Move,
-            nativeEvent = MouseEvent(getAwtMods(windowHandle))
+            mouseEvent = MouseEvent(getAwtMods(windowHandle))
         )
     }
 
@@ -45,7 +45,7 @@ fun ComposeScene.subscribeToGLFWEvents(windowHandle: Long) {
         sendPointerEvent(
             position = glfwGetCursorPos(windowHandle),
             eventType = if (entered) PointerEventType.Enter else PointerEventType.Exit,
-            nativeEvent = MouseEvent(getAwtMods(windowHandle))
+            mouseEvent = MouseEvent(getAwtMods(windowHandle))
         )
     }
 

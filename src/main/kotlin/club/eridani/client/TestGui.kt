@@ -3,12 +3,10 @@ package club.eridani.client
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.CircularProgressIndicator
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
-import androidx.compose.material.Text
+import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -25,7 +23,7 @@ import androidx.compose.ui.input.mouse.MouseScrollUnit
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import club.eridani.compose.Context
 import club.eridani.compose.MSAAFramebuffer
 import club.eridani.util.mc
@@ -36,6 +34,9 @@ import net.minecraft.client.gl.Framebuffer
 import net.minecraft.client.gui.screen.Screen
 import net.minecraft.client.util.math.MatrixStack
 import net.minecraft.text.Text
+import org.jetbrains.skia.ByteBuffer
+import org.jetbrains.skia.DirectContext
+import org.jetbrains.skia.Surface
 import org.jetbrains.skia.*
 import org.lwjgl.opengl.GL30.*
 import org.lwjgl.opengl.GL33.GL_SAMPLER_BINDING
@@ -119,27 +120,13 @@ class TestGui : Screen(Text.of("Eridani")) {
         }
 
         composeScene.setContent {
-
             Box(Modifier.fillMaxSize().blur(2.dp).drawWithContent {
                 frames.let {
                     this.drawContext.canvas.nativeCanvas.drawImage(mcImage, 0f, 0f)
                 }
             })
-
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Box(Modifier.size(200.dp, 150.dp).background(Color.White)) {
-                    Column {
-                        Row(Modifier.height(16.dp).background(Color.Gray)) {
-                            Text("Test dialog")
-                            Spacer(Modifier.weight(1f, fill = true))
-                            IconButton({ println("Close!") }) {
-                                Icon(Icons.Default.Close, "close")
-                            }
-                        }
-                        Text("Text Renderer 中文render")
-                        CircularProgressIndicator()
-                    }
-                }
+            MaterialTheme {
+                TestContent()
             }
         }
 
@@ -167,12 +154,33 @@ class TestGui : Screen(Text.of("Eridani")) {
     private var invalidated = false
 
 
+    @Composable
+    fun TestContent() {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(200.dp, 150.dp).background(Color.White)) {
+                Column {
+                    Row(Modifier.height(16.dp).background(Color.Gray)) {
+                        Text("Test dialog")
+                        Spacer(Modifier.weight(1f, fill = true))
+                        IconButton({ println("Close!") }) {
+                            Icon(Icons.Default.Close, "close")
+                        }
+                    }
+                    Text("Text Renderer 中文render")
+                    CircularProgressIndicator()
+                }
+            }
+        }
+    }
+
+
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun render(matrixStack: MatrixStack?, i: Int, j: Int, f: Float) {
         super.render(matrixStack, i, j, f)
         RenderSystem.assertThread { RenderSystem.isOnRenderThreadOrInit() }
 
 
+        RenderSystem.assertThread { RenderSystem.isOnRenderThreadOrInit() }
         val outputFb = glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING)
 
         glDisable(GL_DEPTH_TEST)
@@ -199,7 +207,6 @@ class TestGui : Screen(Text.of("Eridani")) {
 
         glfwDispatcher.runLoop()
         if (invalidated) {
-            surface.canvas.clear(org.jetbrains.skia.Color.TRANSPARENT)
             composeScene.render(surface.canvas, System.nanoTime())
         }
         context.flush()
@@ -209,10 +216,19 @@ class TestGui : Screen(Text.of("Eridani")) {
 
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, targetFbo.fbo)
         glBindFramebuffer(GL_READ_FRAMEBUFFER, composeFrameBuffer.fbo)
-        glBlitFramebuffer(0, 0, mc.window.width, mc.window.height, 0, 0, mc.window.width, mc.window.height, GL_COLOR_BUFFER_BIT, GL_NEAREST)
+        glBlitFramebuffer(0,
+            0,
+            mc.window.width,
+            mc.window.height,
+            0,
+            0,
+            mc.window.width,
+            mc.window.height,
+            GL_COLOR_BUFFER_BIT,
+            GL_NEAREST)
 
         glDisable(GL_MULTISAMPLE)
-        
+
         glBindFramebuffer(GL_FRAMEBUFFER, outputFb)
         targetFbo.draw(mc.window.width, mc.window.height, false)
 
@@ -237,8 +253,6 @@ class TestGui : Screen(Text.of("Eridani")) {
             glGetIntegerv(GL_SCISSOR_BOX, store.scissorBox.apply { clear() })
         }
         store.bindSampler = glGetInteger(GL_SAMPLER_BINDING)
-
-
 
         for (index in store.enableVertexAttribArray.indices) {
             glGetVertexAttribIiv(index, GL_VERTEX_ATTRIB_ARRAY_ENABLED, buf.apply { clear() }.asIntBuffer())
@@ -283,5 +297,9 @@ class TestGui : Screen(Text.of("Eridani")) {
     fun swapGlContextState(store: Context, load: Context) {
         saveGlContext(store)
         restoreGlContext(load)
+    }
+
+    override fun isPauseScreen(): Boolean {
+        return false
     }
 }
