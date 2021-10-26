@@ -41,3 +41,7 @@ val jar by tasks.getting(Jar::class) {
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     kotlinOptions.freeCompilerArgs += listOf("-Xopt-in=kotlin.RequiresOptIn", "-Xlambdas=indy")
 }
+
+tasks.withType<JavaExec>() {
+    println(this.environment)
+}

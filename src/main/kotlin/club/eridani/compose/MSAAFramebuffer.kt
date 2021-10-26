@@ -10,8 +10,8 @@ import java.nio.*
 
 class MSAAFramebuffer(w: Int, h: Int, depth: Boolean) : Framebuffer(false) {
     init {
-        clear(false)
         initFbo(w, h, false)
+        clear(false)
     }
 
 

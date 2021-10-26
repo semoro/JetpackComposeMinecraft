@@ -43,7 +43,7 @@ class FabricClientEntry : ClientModInitializer {
                 val btn = buttons.find { ((it as? ButtonWidget)?.message as? TranslatableText)?.string?.contains("Realms", ignoreCase = true) == true }!!
                 buttons.remove(btn)
                 buttons.add(ButtonWidget(btn.x, btn.y, btn.width, btn.height, LiteralText("TEST"), ButtonWidget.PressAction {
-                    Screens.getClient(screen).openScreen(TestGui())
+                    Screens.getClient(screen).setScreen(TestGui())
                 }))
             }
         })

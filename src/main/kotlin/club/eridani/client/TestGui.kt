@@ -12,31 +12,24 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ComposeScene
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.input.mouse.MouseScrollUnit
-import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
 import club.eridani.compose.Context
 import club.eridani.compose.MSAAFramebuffer
 import club.eridani.util.mc
 import com.mojang.blaze3d.systems.RenderSystem
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gl.Framebuffer
+import net.minecraft.client.gl.SimpleFramebuffer
 import net.minecraft.client.gui.screen.Screen
 import net.minecraft.client.util.math.MatrixStack
 import net.minecraft.text.Text
-import org.jetbrains.skia.ByteBuffer
-import org.jetbrains.skia.DirectContext
-import org.jetbrains.skia.Surface
 import org.jetbrains.skia.*
 import org.lwjgl.opengl.GL30.*
 import org.lwjgl.opengl.GL33.GL_SAMPLER_BINDING
@@ -76,8 +69,8 @@ class TestGui : Screen(Text.of("Eridani")) {
         return false
     }
 
-    override fun init(minecraftClient: MinecraftClient?, i: Int, j: Int) {
-        super.init(minecraftClient, i, j)
+    override fun init() {
+        super.init()
 
         // Avoid race-conditions
         Class.forName("androidx.compose.ui.platform.GlobalSnapshotManager").kotlin.apply {
@@ -98,7 +91,7 @@ class TestGui : Screen(Text.of("Eridani")) {
         mc.framebuffer.endWrite()
         mcImage = mcSurface.makeImageSnapshot()
 
-        targetFbo = Framebuffer(mc.window.width, mc.window.height, false, false)
+        targetFbo = SimpleFramebuffer(mc.window.width, mc.window.height, false, false)
         glEnable(GL_MULTISAMPLE)
 
         composeFrameBuffer = MSAAFramebuffer(mc.window.width, mc.window.height, false)
@@ -142,7 +135,7 @@ class TestGui : Screen(Text.of("Eridani")) {
         closed = true
 
         glfwDispatcher.stop()
-        composeScene.close()
+        composeScene.dispose()
         this.mcSurface.close()
         this.surface.close()
         this.context.close()
@@ -157,7 +150,7 @@ class TestGui : Screen(Text.of("Eridani")) {
     @Composable
     fun TestContent() {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Box(Modifier.size(200.dp, 150.dp).background(Color.White)) {
+            Box(Modifier.size(200.dp, 150.dp).background(Color.Green)) {
                 Column {
                     Row(Modifier.height(16.dp).background(Color.Gray)) {
                         Text("Test dialog")
@@ -179,15 +172,7 @@ class TestGui : Screen(Text.of("Eridani")) {
         super.render(matrixStack, i, j, f)
         RenderSystem.assertThread { RenderSystem.isOnRenderThreadOrInit() }
 
-
-        RenderSystem.assertThread { RenderSystem.isOnRenderThreadOrInit() }
         val outputFb = glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING)
-
-        glDisable(GL_DEPTH_TEST)
-        glDisable(GL_ALPHA_TEST)
-        glDisable(GL_CULL_FACE)
-
-        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
 
         composeFrameBuffer.clear(true)
         swapGlContextState(mcContext, jetpackContext)
@@ -202,13 +187,12 @@ class TestGui : Screen(Text.of("Eridani")) {
         composeFrameBuffer.beginWrite(true)
 
         glEnable(GL_MULTISAMPLE)
-        glEnable(GL_BLEND)
-
 
         glfwDispatcher.runLoop()
         if (invalidated) {
-            composeScene.render(surface.canvas, System.nanoTime())
+           composeScene.render(surface.canvas, System.nanoTime())
         }
+        context.resetGLAll()
         context.flush()
         composeFrameBuffer.endWrite()
 
@@ -230,11 +214,17 @@ class TestGui : Screen(Text.of("Eridani")) {
         glDisable(GL_MULTISAMPLE)
 
         glBindFramebuffer(GL_FRAMEBUFFER, outputFb)
+        glEnable(GL_BLEND)
+
         targetFbo.draw(mc.window.width, mc.window.height, false)
 
-        glEnable(GL_BLEND)
-        glEnable(GL_DEPTH_TEST)
         glEnable(GL_CULL_FACE)
+        glEnable(GL_DEPTH_TEST)
+        glEnable(GL_BLEND)
+        glBlendFunc(770, 771)
+
+        glBlendColor(0f, 0f, 0f, 1f)
+        glDisable(GL_BLEND)
     }
 
 
@@ -261,15 +251,13 @@ class TestGui : Screen(Text.of("Eridani")) {
     }
 
     fun restoreGlContext(load: Context) {
-        for (index in load.enableVertexAttribArray.indices) {
+       for (index in load.enableVertexAttribArray.indices) {
             val v = load.enableVertexAttribArray[index]
             if (v == GL_FALSE)
                 glDisableVertexAttribArray(index)
             else
                 glEnableVertexAttribArray(index)
         }
-
-
 
 
         glBindBuffer(GL_ARRAY_BUFFER, load.arrayBuffer)
@@ -290,16 +278,10 @@ class TestGui : Screen(Text.of("Eridani")) {
 
 
         if (load.activeTexture != 0) glBindSampler(load.activeTexture - GL_TEXTURE0, load.bindSampler)
-
-
     }
 
     fun swapGlContextState(store: Context, load: Context) {
         saveGlContext(store)
         restoreGlContext(load)
-    }
-
-    override fun isPauseScreen(): Boolean {
-        return false
     }
 }
