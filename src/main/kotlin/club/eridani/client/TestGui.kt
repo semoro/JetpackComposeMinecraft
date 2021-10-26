@@ -56,11 +56,21 @@ class TestGui : Screen(Text.of("Eridani")) {
     lateinit var density: Density
     lateinit var composeScene: ComposeScene
 
-    override fun init(minecraftClient: MinecraftClient?, i: Int, j: Int) {
-        super.init(minecraftClient, i, j)
+
+
+    override fun init() {
 //        RenderSystem.assertThread { RenderSystem.isOnRenderThreadOrInit() }
 
-        targetFbo = Framebuffer(mc.window.width, mc.window.height, false, false)
+//        targetFbo = Framebuffer(mc.window.width, mc.window.height, false, false)
+
+        targetFbo = object : Framebuffer(false) {
+            init {
+                clear(false)
+                initFbo(mc.window.width, mc.window.height, false)
+            }
+        }
+
+
         targetFbo.clear(true)
         glEnable(GL_MULTISAMPLE)
         composeFrameBuffer = MSAAFramebuffer(mc.window.width, mc.window.height, false)
