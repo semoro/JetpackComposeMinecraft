@@ -31,6 +31,7 @@ import net.minecraft.client.gui.screen.Screen
 import net.minecraft.client.util.math.MatrixStack
 import net.minecraft.text.Text
 import org.jetbrains.skia.*
+import org.jetbrains.skia.Color.TRANSPARENT
 import org.lwjgl.opengl.GL30.*
 import org.lwjgl.opengl.GL33.GL_SAMPLER_BINDING
 import org.lwjgl.opengl.GL33.glBindSampler
@@ -150,15 +151,15 @@ class TestGui : Screen(Text.of("Eridani")) {
     @Composable
     fun TestContent() {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Box(Modifier.size(200.dp, 150.dp).background(Color.Green)) {
-                Column {
-                    Row(Modifier.height(16.dp).background(Color.Gray)) {
-                        Text("Test dialog")
-                        Spacer(Modifier.weight(1f, fill = true))
-                        IconButton({ println("Close!") }) {
-                            Icon(Icons.Default.Close, "close")
-                        }
+            Box(Modifier.size(200.dp, 150.dp).background(Color.White)) {
+                Row(Modifier.height(32.dp).background(Color.Gray).padding(4.dp)) {
+                    Text("Test dialog")
+                    Spacer(Modifier.weight(1f, fill = true))
+                    IconButton({ mc.setScreen(null) }) {
+                        Icon(Icons.Default.Close, "close", Modifier.size(16.dp))
                     }
+                }
+                Column(Modifier.padding(4.dp, 36.dp, 4.dp, 4.dp)) {
                     Text("Text Renderer 中文render")
                     CircularProgressIndicator()
                 }
@@ -190,7 +191,8 @@ class TestGui : Screen(Text.of("Eridani")) {
 
         glfwDispatcher.runLoop()
         if (invalidated) {
-           composeScene.render(surface.canvas, System.nanoTime())
+            surface.canvas.clear(TRANSPARENT)
+            composeScene.render(surface.canvas, System.nanoTime())
         }
         context.resetGLAll()
         context.flush()
